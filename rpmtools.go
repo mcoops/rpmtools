@@ -146,13 +146,22 @@ func (rpm RpmSpec) RpmApplyPatches() error {
 	if !strings.HasSuffix(rpm.sourcesLocation, "SOURCES") {
 		return errors.New("RpmApplyPatches: expected SOURCES path is incorrect: " + rpm.sourcesLocation)
 	}
-	cmd := exec.Command("bash", "-c", "rpmbuild --nodeps --define \"_topdir "+rpm.outLocation+" \" -bp "+rpm.specLocation)
+	cmd := exec.Command("bash", "-c", "rpmbuild -bp --nodeps --define \"_topdir "+rpm.outLocation+" \" "+rpm.specLocation)
 
 	if err := cmd.Run(); err != nil {
 		return errors.New("RpmApplyPatches: failed to run rpmbuild: " + err.Error())
 	}
 
 	return nil
+}
+
+// Best effort. Should check each error code, but prob not worth
+func (rpm RpmSpec) RpmCleanup() {
+	os.RemoveAll(rpm.sourcesLocation)
+	os.RemoveAll(rpm.srpmLocation)
+	os.RemoveAll(filepath.Join(rpm.outLocation, "BUILD"))
+	os.RemoveAll(filepath.Join(rpm.outLocation, "BUILDROOT"))
+	os.RemoveAll(filepath.Join(rpm.outLocation, "RPMS"))
 }
 
 // Given a `url` download the rpm to the `outputPath` to `SRPM` folder. Then
@@ -166,20 +175,12 @@ func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
 	}
 	defer resp.Body.Close()
 
-	srpmPath := filepath.Join(outputPath, "SRPMS")
-	if err := os.Mkdir(srpmPath, 0755); err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create SRPMS dir: " + filepath.Join(outputPath, "SRPMS"))
-	}
+	sourceRPM, sRPM, err := util.CreateRpmBuildStructure(outputPath)
 
-	outputRpmPath := filepath.Join(srpmPath, filepath.Base(url))
+	outputRpmPath := filepath.Join(sRPM, filepath.Base(url))
 	out, err := os.Create(outputRpmPath)
 	if err != nil {
 		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create output file: " + outputRpmPath)
-	}
-
-	sourcesPath := filepath.Join(outputPath, "SOURCES")
-	if err := os.Mkdir(sourcesPath, 0755); err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create SOURCES dir: " + sourcesPath)
 	}
 
 	_, err = io.Copy(out, resp.Body)
@@ -189,19 +190,19 @@ func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
 
 	// can we use out.filename?
 	cmd := exec.Command("bash", "-c", "rpm2cpio "+outputRpmPath+" | cpio -idv")
-	cmd.Dir = sourcesPath
+	cmd.Dir = sourceRPM
 	if err := cmd.Run(); err != nil {
 		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to unpack rpm file")
 	}
 
 	// get the specfile
-	rpmSpec, err := RpmFindAndParseSpec(sourcesPath)
+	rpmSpec, err := RpmFindAndParseSpec(sourceRPM)
 	if err != nil {
 		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to parse specfile: " + err.Error())
 	}
 
-	rpmSpec.srpmLocation = srpmPath
-	rpmSpec.sourcesLocation = sourcesPath
+	rpmSpec.srpmLocation = sRPM
+	rpmSpec.sourcesLocation = sourceRPM
 	rpmSpec.outLocation = outputPath
 
 	/// move specfile to SPECS

@@ -31,14 +31,30 @@ func Exists(name string) bool {
 	return true
 }
 
-func CreateRpmBuildStructure(output string) error {
-	if output == "" {
-		return errors.New("CreateRpmBuildStructure: File not found")
+func createDir(path string) error {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		os.RemoveAll(path)
 	}
-
-	if err := os.Mkdir(filepath.Join(output, "SOURCES"), 0700); err != nil {
-		return errors.New("")
+	if err := os.Mkdir(path, 0700); err != nil {
+		return errors.New("CreateRpmBuildStructure: failed to create dir " + path + " - " + err.Error())
 	}
-
 	return nil
+}
+
+func CreateRpmBuildStructure(output string) (string, string, error) {
+	if output == "" {
+		return "", "", errors.New("CreateRpmBuildStructure: no file specified")
+	}
+
+	sourceRPM := filepath.Join(output, "SOURCES")
+	if err := createDir(sourceRPM); err != nil {
+		return "", "", err
+	}
+
+	sRPM := filepath.Join(output, "SRPMS")
+	if err := createDir(sRPM); err != nil {
+		return sourceRPM, "", err
+	}
+
+	return sourceRPM, sRPM, nil
 }
