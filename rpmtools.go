@@ -4,17 +4,25 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	util "github.com/mcoops/rpmtools/internal"
 )
 
 type RpmSpec struct {
-	location string
-	Tags     map[string][]SpecTag
+	specLocation    string
+	srpmLocation    string
+	sourcesLocation string
+	outLocation     string
+	Tags            map[string][]SpecTag
 }
 
 type SpecTag struct {
@@ -54,7 +62,8 @@ func init() {
 	SpecfileLabelsRegex["packages"] = regexp.MustCompile("^%package\\s+(\\S+)")
 }
 
-func rpmFindSpec(dir string) (string, error) {
+// Find the first file ending with .spec
+func RpmFindSpec(dir string) (string, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return "", errors.New("Cannot scan dir for specfile: " + dir)
@@ -68,21 +77,28 @@ func rpmFindSpec(dir string) (string, error) {
 	return "", errors.New("specfile not found")
 }
 
-func RpmFindAndParseSpec(dir string) (string, RpmSpec, error) {
-	specfile, err := rpmFindSpec(dir)
+// Using the first specfile found, parse it's fields and return an struct
+// allowing easy asccess to fields.
+func RpmFindAndParseSpec(dir string) (RpmSpec, error) {
+	specfile, err := RpmFindSpec(dir)
 	if err != nil {
-		return "", RpmSpec{}, err
+		return RpmSpec{}, err
 	}
 
 	spec, err := RpmParseSpec(specfile)
-	return specfile, spec, err
+	return spec, err
 }
 
+// Given a specfile parse and return fields from the file
 func RpmParseSpec(name string) (RpmSpec, error) {
+	if util.Exists(name) == false {
+		return RpmSpec{}, errors.New("File: " + name + " not found")
+	}
+
 	rpm := RpmSpec{
 		Tags: make(map[string][]SpecTag),
 	}
-	rpm.location = name
+	rpm.specLocation = name
 	// run rpmspec first to normalize the data
 	out, err := exec.Command("rpmspec", "-P", name).Output()
 	if err != nil {
@@ -105,6 +121,7 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 	return rpm, nil
 }
 
+// Using a rpmspec obj return source0
 func (rpm RpmSpec) RpmGetSource0() (string, error) {
 	if rpm.Tags["sources"] == nil {
 		return "", errors.New("No sources")
@@ -123,16 +140,70 @@ func (rpm RpmSpec) RpmGetSource0() (string, error) {
 	return rpm.Tags["sources"][0].TagValue, nil
 }
 
-func (rpm RpmSpec) RpmApplyPatches(destination string) error {
-	if strings.HasSuffix(destination, "SOURCES") {
-		destination = strings.Replace(destination, "SOURCES", "", 1)
+// Using an rpmspec obj (rpm.spec location) and an output location, extract
+// the source rpm and apply patches
+func (rpm RpmSpec) RpmApplyPatches() error {
+	if !strings.HasSuffix(rpm.sourcesLocation, "SOURCES") {
+		return errors.New("RpmApplyPatches: expected SOURCES path is incorrect: " + rpm.sourcesLocation)
 	}
-	cmd := exec.Command("bash", "-c", "rpmbuild --nodeps --define \"_topdir "+destination+" \" -bp "+rpm.location)
+	cmd := exec.Command("bash", "-c", "rpmbuild --nodeps --define \"_topdir "+rpm.outLocation+" \" -bp "+rpm.specLocation)
 
 	if err := cmd.Run(); err != nil {
-		// log.Printf("rpmbuild failed to apply patches: %s %s", destination, err)
-		return err
+		return errors.New("RpmApplyPatches: failed to run rpmbuild: " + err.Error())
 	}
 
 	return nil
+}
+
+// Given a `url` download the rpm to the `outputPath` to `SRPM` folder. Then
+// using rpm2cpio attempt to unpack to `SOURCES`. If that all completes, find
+// and parse the specfile.
+func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
+	resp, err := http.Get(url)
+
+	if err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to fetch url: " + url)
+	}
+	defer resp.Body.Close()
+
+	srpmPath := filepath.Join(outputPath, "SRPMS")
+	if err := os.Mkdir(srpmPath, 0755); err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create SRPMS dir: " + filepath.Join(outputPath, "SRPMS"))
+	}
+
+	outputRpmPath := filepath.Join(srpmPath, filepath.Base(url))
+	out, err := os.Create(outputRpmPath)
+	if err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create output file: " + outputRpmPath)
+	}
+
+	sourcesPath := filepath.Join(outputPath, "SOURCES")
+	if err := os.Mkdir(sourcesPath, 0755); err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create SOURCES dir: " + sourcesPath)
+	}
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to save file to: " + outputRpmPath)
+	}
+
+	// can we use out.filename?
+	cmd := exec.Command("bash", "-c", "rpm2cpio "+outputRpmPath+" | cpio -idv")
+	cmd.Dir = sourcesPath
+	if err := cmd.Run(); err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to unpack rpm file")
+	}
+
+	// get the specfile
+	rpmSpec, err := RpmFindAndParseSpec(sourcesPath)
+	if err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to parse specfile: " + err.Error())
+	}
+
+	rpmSpec.srpmLocation = srpmPath
+	rpmSpec.sourcesLocation = sourcesPath
+	rpmSpec.outLocation = outputPath
+
+	/// move specfile to SPECS
+	return rpmSpec, nil
 }

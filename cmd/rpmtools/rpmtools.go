@@ -14,9 +14,16 @@ func main() {
 
 	fmt.Println(*repoPtr)
 
-	r, _ := rpmtools.RpmParseSpec("/tmp/cri-o/contrib/test/ci/cri-o.spec")
+	r, err := rpmtools.RpmGetSrcRpm("http://ftp.iinet.net.au/pub/fedora/linux/updates/34/Modular/SRPMS/Packages/c/cri-o-1.20.0-1.module_f34+10489+4277ba4d.src.rpm", "/tmp/")
 
-	fmt.Println(r)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
 
-	fmt.Println(r.RpmGetSource0())
+	fmt.Printf(r.RpmGetSource0())
+
+	if err := r.RpmApplyPatches(); err != nil {
+		fmt.Println(err.Error())
+	}
+
 }
