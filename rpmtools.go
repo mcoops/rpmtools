@@ -18,10 +18,11 @@ import (
 )
 
 type RpmSpec struct {
-	specLocation    string
-	srpmLocation    string
-	sourcesLocation string
-	outLocation     string
+	SpecLocation    string
+	SrpmLocation    string
+	SourcesLocation string
+	OutLocation     string
+	BuildLocation   string
 	Tags            map[string][]SpecTag
 }
 
@@ -52,6 +53,7 @@ func init() {
 	SpecfileLabelsRegex["url"] = regexp.MustCompile("^URL\\s*:\\s*(\\S+)")
 	SpecfileLabelsRegex["buildroot"] = regexp.MustCompile("^BuildRoot\\s*:\\s*(\\S+)")
 	SpecfileLabelsRegex["buildarch"] = regexp.MustCompile("^BuildArch\\s*:\\s*(\\S+)")
+	SpecfileLabelsRegex["buildRequires"] = regexp.MustCompile("^BuildRequires\\s*:\\s*(.+)")
 
 	SpecfileLabelsRegex["sources"] = regexp.MustCompile("^(Source\\d*\\s*):\\s*(.+)")
 	SpecfileLabelsRegex["patches"] = regexp.MustCompile("^(Patch\\d*\\s*):\\s*(\\S+)")
@@ -98,7 +100,7 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 	rpm := RpmSpec{
 		Tags: make(map[string][]SpecTag),
 	}
-	rpm.specLocation = name
+	rpm.SpecLocation = name
 	// run rpmspec first to normalize the data
 	out, err := exec.Command("rpmspec", "-P", name).Output()
 	if err != nil {
@@ -143,10 +145,10 @@ func (rpm RpmSpec) RpmGetSource0() (string, error) {
 // Using an rpmspec obj (rpm.spec location) and an output location, extract
 // the source rpm and apply patches
 func (rpm RpmSpec) RpmApplyPatches() error {
-	if !strings.HasSuffix(rpm.sourcesLocation, "SOURCES") {
-		return errors.New("RpmApplyPatches: expected SOURCES path is incorrect: " + rpm.sourcesLocation)
+	if !strings.HasSuffix(rpm.SourcesLocation, "SOURCES") {
+		return errors.New("RpmApplyPatches: expected SOURCES path is incorrect: " + rpm.SourcesLocation)
 	}
-	cmd := exec.Command("bash", "-c", "rpmbuild -bp --nodeps --define \"_topdir "+rpm.outLocation+" \" "+rpm.specLocation)
+	cmd := exec.Command("bash", "-c", "rpmbuild -bp --nodeps --define \"_topdir "+rpm.OutLocation+" \" "+rpm.SpecLocation)
 
 	if err := cmd.Run(); err != nil {
 		return errors.New("RpmApplyPatches: failed to run rpmbuild: " + err.Error())
@@ -157,11 +159,11 @@ func (rpm RpmSpec) RpmApplyPatches() error {
 
 // Best effort. Should check each error code, but prob not worth
 func (rpm RpmSpec) RpmCleanup() {
-	os.RemoveAll(rpm.sourcesLocation)
-	os.RemoveAll(rpm.srpmLocation)
-	os.RemoveAll(filepath.Join(rpm.outLocation, "BUILD"))
-	os.RemoveAll(filepath.Join(rpm.outLocation, "BUILDROOT"))
-	os.RemoveAll(filepath.Join(rpm.outLocation, "RPMS"))
+	os.RemoveAll(rpm.SourcesLocation)
+	os.RemoveAll(rpm.SrpmLocation)
+	os.RemoveAll(rpm.BuildLocation)
+	os.RemoveAll(filepath.Join(rpm.OutLocation, "BUILDROOT"))
+	os.RemoveAll(filepath.Join(rpm.OutLocation, "RPMS"))
 }
 
 // Given a `url` download the rpm to the `outputPath` to `SRPM` folder. Then
@@ -175,7 +177,10 @@ func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
 	}
 	defer resp.Body.Close()
 
-	sourceRPM, sRPM, err := util.CreateRpmBuildStructure(outputPath)
+	sourceRPM, sRPM, bRPM, err := util.CreateRpmBuildStructure(outputPath)
+	if err != nil {
+		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create rpmbuild structure")
+	}
 
 	outputRpmPath := filepath.Join(sRPM, filepath.Base(url))
 	out, err := os.Create(outputRpmPath)
@@ -201,9 +206,10 @@ func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
 		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to parse specfile: " + err.Error())
 	}
 
-	rpmSpec.srpmLocation = sRPM
-	rpmSpec.sourcesLocation = sourceRPM
-	rpmSpec.outLocation = outputPath
+	rpmSpec.SrpmLocation = sRPM
+	rpmSpec.SourcesLocation = sourceRPM
+	rpmSpec.OutLocation = outputPath
+	rpmSpec.BuildLocation = bRPM
 
 	/// move specfile to SPECS
 	return rpmSpec, nil

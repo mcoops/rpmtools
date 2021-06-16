@@ -35,26 +35,31 @@ func createDir(path string) error {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		os.RemoveAll(path)
 	}
-	if err := os.Mkdir(path, 0700); err != nil {
+	if err := os.MkdirAll(path, 0700); err != nil {
 		return errors.New("CreateRpmBuildStructure: failed to create dir " + path + " - " + err.Error())
 	}
 	return nil
 }
 
-func CreateRpmBuildStructure(output string) (string, string, error) {
+func CreateRpmBuildStructure(output string) (string, string, string, error) {
 	if output == "" {
-		return "", "", errors.New("CreateRpmBuildStructure: no file specified")
+		return "", "", "", errors.New("CreateRpmBuildStructure: no file specified")
 	}
 
 	sourceRPM := filepath.Join(output, "SOURCES")
 	if err := createDir(sourceRPM); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	sRPM := filepath.Join(output, "SRPMS")
 	if err := createDir(sRPM); err != nil {
-		return sourceRPM, "", err
+		return sourceRPM, "", "", err
 	}
 
-	return sourceRPM, sRPM, nil
+	bRPM := filepath.Join(output, "BUILD")
+	if err := createDir(bRPM); err != nil {
+		return sourceRPM, sRPM, "", err
+	}
+
+	return sourceRPM, sRPM, bRPM, nil
 }
