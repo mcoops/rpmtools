@@ -44,24 +44,24 @@ func init() {
 
 	// https://github.com/bkircher/python-rpm-spec/blob/master/pyrpm/spec.py
 	SpecfileLabelsRegex = make(map[string]*regexp.Regexp)
-	SpecfileLabelsRegex["name"] = regexp.MustCompile("^Name\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["version"] = regexp.MustCompile("^Version\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["epoch"] = regexp.MustCompile("^Epoch\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["release"] = regexp.MustCompile("^Release\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["summary"] = regexp.MustCompile("^Summary\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["license"] = regexp.MustCompile("^License\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["url"] = regexp.MustCompile("^URL\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["buildroot"] = regexp.MustCompile("^BuildRoot\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["buildarch"] = regexp.MustCompile("^BuildArch\\s*:\\s*(\\S+)")
-	SpecfileLabelsRegex["buildRequires"] = regexp.MustCompile("^BuildRequires\\s*:\\s*(.+)")
+	SpecfileLabelsRegex["name"] = regexp.MustCompile(`^Name\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["version"] = regexp.MustCompile(`^Version\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["epoch"] = regexp.MustCompile(`^Epoch\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["release"] = regexp.MustCompile(`^Release\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["summary"] = regexp.MustCompile(`^Summary\s*:\s*(.+)`)
+	SpecfileLabelsRegex["license"] = regexp.MustCompile(`^License\s*:\s*(.+)`)
+	SpecfileLabelsRegex["url"] = regexp.MustCompile(`^URL\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["buildroot"] = regexp.MustCompile(`^BuildRoot\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["buildarch"] = regexp.MustCompile(`^BuildArch\s*:\s*(\S+)`)
+	SpecfileLabelsRegex["buildRequires"] = regexp.MustCompile(`^BuildRequires\s*:\s*(.+)`)
 
-	SpecfileLabelsRegex["sources"] = regexp.MustCompile("^(Source\\d*\\s*):\\s*(.+)")
-	SpecfileLabelsRegex["patches"] = regexp.MustCompile("^(Patch\\d*\\s*):\\s*(\\S+)")
-	SpecfileLabelsRegex["requires"] = regexp.MustCompile("^Requires\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["conflicts"] = regexp.MustCompile("^Conflicts\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["obsoletes"] = regexp.MustCompile("^Obsoletes\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["provides"] = regexp.MustCompile("^Provides\\s*:\\s*(.+)")
-	SpecfileLabelsRegex["packages"] = regexp.MustCompile("^%package\\s+(\\S+)")
+	SpecfileLabelsRegex["sources"] = regexp.MustCompile(`^(Source\d*\s*):\s*(.+)`)
+	SpecfileLabelsRegex["patches"] = regexp.MustCompile(`^(Patch\d*\s*):\s*(\S+)`)
+	SpecfileLabelsRegex["requires"] = regexp.MustCompile(`^Requires\s*:\s*(.+)`)
+	SpecfileLabelsRegex["conflicts"] = regexp.MustCompile(`^Conflicts\s*:\s*(.+)`)
+	SpecfileLabelsRegex["obsoletes"] = regexp.MustCompile(`^Obsoletes\s*:\s*(.+)`)
+	SpecfileLabelsRegex["provides"] = regexp.MustCompile(`^Provides\s*:\s*(.+)`)
+	SpecfileLabelsRegex["packages"] = regexp.MustCompile(`^%package\s+(\S+)`)
 }
 
 // Find the first file ending with .spec
@@ -123,7 +123,7 @@ func rpmCleanSpecFile(name string) error {
 
 // Given a specfile parse and return fields from the file
 func RpmParseSpec(name string) (RpmSpec, error) {
-	if util.Exists(name) == false {
+	if !util.Exists(name) {
 		return RpmSpec{}, errors.New("File: " + name + " not found")
 	}
 
@@ -160,7 +160,7 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 // Using a rpmspec obj return source0
 func (rpm RpmSpec) RpmGetSource0() (string, error) {
 	if rpm.Tags["sources"] == nil {
-		return "", errors.New("No sources")
+		return "", errors.New("no sources")
 	}
 
 	for _, source := range rpm.Tags["sources"] {
