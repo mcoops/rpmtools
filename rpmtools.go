@@ -91,11 +91,43 @@ func RpmFindAndParseSpec(dir string) (RpmSpec, error) {
 	return spec, err
 }
 
+func rpmCleanSpecFile(name string) error {
+	hasChanges := false
+	f, err := ioutil.ReadFile(name)
+
+	if err != nil {
+		return errors.New("rpmCleanSpecFile: failed to open file " + name)
+	}
+	lines := strings.Split(string(f), "\n")
+
+	for i, line := range lines {
+		if strings.HasPrefix(line, "Name:") {
+			break
+		}
+		if strings.HasPrefix(line, "%__") {
+			lines[i] = "#" + line
+			hasChanges = true
+		}
+	}
+
+	if !hasChanges {
+		return nil
+	}
+	output := strings.Join(lines, "\n")
+	err = ioutil.WriteFile(name, []byte(output), 0644)
+	if err != nil {
+		return errors.New("rpmCleanSpecFile: failed to writeback file")
+	}
+	return nil
+}
+
 // Given a specfile parse and return fields from the file
 func RpmParseSpec(name string) (RpmSpec, error) {
 	if util.Exists(name) == false {
 		return RpmSpec{}, errors.New("File: " + name + " not found")
 	}
+
+	rpmCleanSpecFile(name)
 
 	rpm := RpmSpec{
 		Tags: make(map[string][]SpecTag),
@@ -104,7 +136,9 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 	// run rpmspec first to normalize the data
 	out, err := exec.Command("rpmspec", "-P", name).Output()
 	if err != nil {
-		return RpmSpec{}, err
+		// rpmspec will occasionally return errors, so ignore them
+		log.Printf("RpmParseSpec: ignoring error %s", err.Error())
+		// return RpmSpec{}, err
 	}
 
 	sc := bufio.NewScanner(bytes.NewReader(out))
