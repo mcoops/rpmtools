@@ -17,6 +17,10 @@ import (
 	util "github.com/mcoops/rpmtools/internal"
 )
 
+// RpmSpec is a reference to metadata about a src rpm, including info like
+// the specfile found, the rows in the file and most importantly a map of
+// SpecTag structs so help easily reference values, for example
+// RpmSpec.Tags["url"].
 type RpmSpec struct {
 	SpecLocation    string
 	SrpmLocation    string
@@ -26,12 +30,15 @@ type RpmSpec struct {
 	Tags            map[string][]SpecTag
 }
 
+// Represents a row/field of key name + key value within a specfile
 type SpecTag struct {
-	TagName  string
+	// Name of value in specfile, i.e. sourec0, url, summary
+	TagName string
+	// The actual value of the specfile definition
 	TagValue string
 }
 
-var SpecfileLabelsRegex map[string]*regexp.Regexp
+var specfileLabelsRegex map[string]*regexp.Regexp
 
 func init() {
 	if _, err := exec.LookPath("rpmbuild"); err != nil {
@@ -43,54 +50,29 @@ func init() {
 	}
 
 	// https://github.com/bkircher/python-rpm-spec/blob/master/pyrpm/spec.py
-	SpecfileLabelsRegex = make(map[string]*regexp.Regexp)
-	SpecfileLabelsRegex["name"] = regexp.MustCompile(`^Name\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["version"] = regexp.MustCompile(`^Version\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["epoch"] = regexp.MustCompile(`^Epoch\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["release"] = regexp.MustCompile(`^Release\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["summary"] = regexp.MustCompile(`^Summary\s*:\s*(.+)`)
-	SpecfileLabelsRegex["license"] = regexp.MustCompile(`^License\s*:\s*(.+)`)
-	SpecfileLabelsRegex["url"] = regexp.MustCompile(`^URL\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["buildroot"] = regexp.MustCompile(`^BuildRoot\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["buildarch"] = regexp.MustCompile(`^BuildArch\s*:\s*(\S+)`)
-	SpecfileLabelsRegex["buildRequires"] = regexp.MustCompile(`^BuildRequires\s*:\s*(.+)`)
+	specfileLabelsRegex = make(map[string]*regexp.Regexp)
+	specfileLabelsRegex["name"] = regexp.MustCompile(`^Name\s*:\s*(\S+)`)
+	specfileLabelsRegex["version"] = regexp.MustCompile(`^Version\s*:\s*(\S+)`)
+	specfileLabelsRegex["epoch"] = regexp.MustCompile(`^Epoch\s*:\s*(\S+)`)
+	specfileLabelsRegex["release"] = regexp.MustCompile(`^Release\s*:\s*(\S+)`)
+	specfileLabelsRegex["summary"] = regexp.MustCompile(`^Summary\s*:\s*(.+)`)
+	specfileLabelsRegex["license"] = regexp.MustCompile(`^License\s*:\s*(.+)`)
+	specfileLabelsRegex["url"] = regexp.MustCompile(`^URL\s*:\s*(\S+)`)
+	specfileLabelsRegex["buildroot"] = regexp.MustCompile(`^BuildRoot\s*:\s*(\S+)`)
+	specfileLabelsRegex["buildarch"] = regexp.MustCompile(`^BuildArch\s*:\s*(\S+)`)
+	specfileLabelsRegex["buildRequires"] = regexp.MustCompile(`^BuildRequires\s*:\s*(.+)`)
 
-	SpecfileLabelsRegex["sources"] = regexp.MustCompile(`^(Source\d*\s*):\s*(.+)`)
-	SpecfileLabelsRegex["patches"] = regexp.MustCompile(`^(Patch\d*\s*):\s*(\S+)`)
-	SpecfileLabelsRegex["requires"] = regexp.MustCompile(`^Requires\s*:\s*(.+)`)
-	SpecfileLabelsRegex["conflicts"] = regexp.MustCompile(`^Conflicts\s*:\s*(.+)`)
-	SpecfileLabelsRegex["obsoletes"] = regexp.MustCompile(`^Obsoletes\s*:\s*(.+)`)
-	SpecfileLabelsRegex["provides"] = regexp.MustCompile(`^Provides\s*:\s*(.+)`)
-	SpecfileLabelsRegex["packages"] = regexp.MustCompile(`^%package\s+(\S+)`)
+	specfileLabelsRegex["sources"] = regexp.MustCompile(`^(Source\d*\s*):\s*(.+)`)
+	specfileLabelsRegex["patches"] = regexp.MustCompile(`^(Patch\d*\s*):\s*(\S+)`)
+	specfileLabelsRegex["requires"] = regexp.MustCompile(`^Requires\s*:\s*(.+)`)
+	specfileLabelsRegex["conflicts"] = regexp.MustCompile(`^Conflicts\s*:\s*(.+)`)
+	specfileLabelsRegex["obsoletes"] = regexp.MustCompile(`^Obsoletes\s*:\s*(.+)`)
+	specfileLabelsRegex["provides"] = regexp.MustCompile(`^Provides\s*:\s*(.+)`)
+	specfileLabelsRegex["packages"] = regexp.MustCompile(`^%package\s+(\S+)`)
 }
 
-// Find the first file ending with .spec
-func RpmFindSpec(dir string) (string, error) {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return "", errors.New("Cannot scan dir for specfile: " + dir)
-	}
-
-	for _, f := range files {
-		if filepath.Ext(f.Name()) == ".spec" {
-			return filepath.Join(dir, f.Name()), nil
-		}
-	}
-	return "", errors.New("specfile not found")
-}
-
-// Using the first specfile found, parse it's fields and return an struct
-// allowing easy asccess to fields.
-func RpmFindAndParseSpec(dir string) (RpmSpec, error) {
-	specfile, err := RpmFindSpec(dir)
-	if err != nil {
-		return RpmSpec{}, err
-	}
-
-	spec, err := RpmParseSpec(specfile)
-	return spec, err
-}
-
+// Some specfiles do weird things. If it tries to do weird things, attempt to
+// clean some of it so that rpmspec will parse correctly.
 func rpmCleanSpecFile(name string) error {
 	hasChanges := false
 	f, err := ioutil.ReadFile(name)
@@ -121,6 +103,33 @@ func rpmCleanSpecFile(name string) error {
 	return nil
 }
 
+// Given a directory to scan, find the first file ending with .spec
+func RpmFindSpec(dir string) (string, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return "", errors.New("Cannot scan dir for specfile: " + dir)
+	}
+
+	for _, f := range files {
+		if filepath.Ext(f.Name()) == ".spec" {
+			return filepath.Join(dir, f.Name()), nil
+		}
+	}
+	return "", errors.New("specfile not found")
+}
+
+// Using the first specfile found, parse it's fields and return an struct
+// allowing easy asccess to fields.
+func RpmFindAndParseSpec(dir string) (RpmSpec, error) {
+	specfile, err := RpmFindSpec(dir)
+	if err != nil {
+		return RpmSpec{}, err
+	}
+
+	spec, err := RpmParseSpec(specfile)
+	return spec, err
+}
+
 // Given a specfile parse and return fields from the file
 func RpmParseSpec(name string) (RpmSpec, error) {
 	if !util.Exists(name) {
@@ -144,7 +153,7 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 	sc := bufio.NewScanner(bytes.NewReader(out))
 
 	for sc.Scan() {
-		for k, i := range SpecfileLabelsRegex {
+		for k, i := range specfileLabelsRegex {
 			if match := i.FindStringSubmatch(sc.Text()); match != nil {
 				if len(match) == 2 {
 					rpm.Tags[k] = append(rpm.Tags[k], SpecTag{TagName: k, TagValue: match[1]})
@@ -157,7 +166,7 @@ func RpmParseSpec(name string) (RpmSpec, error) {
 	return rpm, nil
 }
 
-// Using a rpmspec obj return source0
+// Using a rpmspec obj return source0. Could be called Source0, or Source
 func (rpm RpmSpec) RpmGetSource0() (string, error) {
 	if rpm.Tags["sources"] == nil {
 		return "", errors.New("no sources")
@@ -191,7 +200,7 @@ func (rpm RpmSpec) RpmApplyPatches() error {
 	return nil
 }
 
-// Best effort. Should check each error code, but prob not worth
+// Best effort removal of src rpm files.
 func (rpm RpmSpec) RpmCleanup() {
 	os.RemoveAll(rpm.SourcesLocation)
 	os.RemoveAll(rpm.SrpmLocation)
