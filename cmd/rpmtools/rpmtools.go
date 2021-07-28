@@ -20,7 +20,7 @@ func main() {
 	r, err := rpmtools.RpmGetSrcRpm(*urlPtr, "/tmp/")
 
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Printf("%s", err.Error())
 	}
 
 	source0, _ := r.RpmGetSource0()
