@@ -104,6 +104,7 @@ func rpmCleanSpecFile(name string) error {
 }
 
 // Given a directory to scan, find the first file ending with .spec
+
 func RpmFindSpec(dir string) (string, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -220,7 +221,7 @@ func RpmGetSrpm(url string, outputPath string) (RpmSpec, error) {
 	}
 	defer resp.Body.Close()
 
-	sourceRPM, sRPM, bRPM, err := util.CreateRpmBuildStructure(outputPath)
+  sourceRPM, sRPM, bRPM, err := util.CreateRpmBuildStructure(outputPath)
 	if err != nil {
 		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create rpmbuild structure")
 	}
