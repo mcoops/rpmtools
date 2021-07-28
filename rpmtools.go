@@ -212,7 +212,7 @@ func (rpm RpmSpec) RpmCleanup() {
 // Given a `url` download the rpm to the `outputPath` to `SRPM` folder. Then
 // using rpm2cpio attempt to unpack to `SOURCES`. If that all completes, find
 // and parse the specfile.
-func RpmGetSrcRpm(url string, outputPath string) (RpmSpec, error) {
+func RpmGetSrpm(url string, outputPath string) (RpmSpec, error) {
 	resp, err := http.Get(url)
 
 	if err != nil {
