@@ -17,7 +17,7 @@ func main() {
 		return
 	}
 
-	r, err := rpmtools.RpmGetSrcRpm(*urlPtr, "/tmp/")
+	r, err := rpmtools.RpmGetSrpm(*urlPtr, "/tmp/")
 
 	if err != nil {
 		fmt.Printf("%s", err.Error())
