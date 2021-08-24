@@ -107,7 +107,7 @@ func TestRpmSpecFromFile(t *testing.T) {
 				t.Errorf("Spec file was wrongly detected: %s, exp: %s", filepath.Base(rpmSpec.SpecLocation), test.specName)
 			}
 
-			source0, err := rpmSpec.RpmGetSource0()
+			source0, err := rpmSpec.GetSource0()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -130,6 +130,8 @@ func TestRpmSpecFromFile(t *testing.T) {
 			if !SortCompare(patchesTags, test.patchTags) {
 				t.Errorf("Patch tags are wrong: %v, exp: %v", patchesTags, test.patchTags)
 			}
+
+			rpmSpec.Cleanup()
 		})
 	}
 }

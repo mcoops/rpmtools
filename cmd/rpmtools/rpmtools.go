@@ -13,6 +13,7 @@ import (
 
 func main() {
 	urlPtr := flag.String("srpm", "", "url/filepath to download and patch specfile, i.e. http://ftp.iinet.net.au/pub/fedora/linux/updates/34/Modular/SRPMS/Packages/c/cri-o-1.20.0-1.module_f34+10489+4277ba4d.src.rpm")
+	noCleanup := flag.Bool("nocleanup", false, "does not clean up the RPM directories at the end")
 
 	flag.Parse()
 
@@ -55,7 +56,7 @@ func main() {
 		fmt.Printf("%s", err.Error())
 	}
 
-	source0, _ := r.RpmGetSource0()
+	source0, _ := r.GetSource0()
 	fmt.Println("Source0: " + source0)
 	fmt.Printf("Licenses: ")
 	fmt.Println(r.Tags["license"])
@@ -69,9 +70,11 @@ func main() {
 		fmt.Printf("Tag %s = %s\n", name, tag)
 	}
 
-	if err := r.RpmApplyPatches(); err != nil {
+	if err := r.ApplyPatches(); err != nil {
 		fmt.Println(err.Error())
 	}
 
-	r.RpmCleanup()
+	if !*noCleanup {
+		r.Cleanup()
+	}
 }

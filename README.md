@@ -11,17 +11,16 @@ seem to correctly parse all macros.
 
 ## Library
 
-Given a URL to a src rpm, downloads to the output location directly into the 
-rpmbuild build structure i.e. /tmp/SRPM. Also parses the specfile and makes
-those fields available in an `RpmSpec` struct
+Given a path to a local file it extracts the SRPM in the output directory and
+parses the specfile and makes those fields available in an `RpmSpec` struct
 ```go
-RpmGetSrcRpm("http://ftp.iinet.net.au/pub/fedora/linux/updates/34/Modular/SRPMS/Packages/c/cri-o-1.20.0-1.module_f34+10489+4277ba4d.src.rpm", "/tmp/")
+RpmSpecFromFile("cri-o-1.20.0-1.module_f34+10489+4277ba4d.src.rpm", "/tmp/")
 ```
 
 Attempt to work out which field in the specfile is `source0`:
 
 ```go
-source0, _ := r.RpmGetSource0()
+source0, _ := r.GetSource0()
 ```
 
 Get license information: 
@@ -33,15 +32,15 @@ r.Tags["license"]
 Apply any patches associated in the source rpm:
 
 ```go
-if err := r.RpmApplyPatches(); err != nil {
+if err := r.ApplyPatches(); err != nil {
     fmt.Println(err.Error())
 }
 ```
 
-Cleanup any rpmbuild build folders, i.e. reset state before `RpmGetSrcRpm`
+Cleanup any rpmbuild build folders, i.e. reset state before `RpmSpecFromFile`
 
 ```go
-r.RpmCleanup()
+r.Cleanup()
 ```
 
 ## Dev container
