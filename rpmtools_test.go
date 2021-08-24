@@ -51,6 +51,18 @@ func SortCompare(a []string, b []string) bool {
 	return true
 }
 
+func equalSpecTags(a, b []SpecTag) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestMain(m *testing.M) {
 	var err error
 	outDir, err = ioutil.TempDir("", "")
@@ -115,16 +127,26 @@ func TestRpmSpecFromFile(t *testing.T) {
 				t.Errorf("Source0 was not correctly found: %s, exp: %s", source0, test.sourceTags[0])
 			}
 
-			sourcesTags := make([]string, len(rpmSpec.Tags["sources"]))
-			for i, s := range rpmSpec.Tags["sources"] {
+			if !equalSpecTags(rpmSpec.Tags["sources"], rpmSpec.SourcesTags) {
+				t.Errorf("tags['sources'] different from SourcesTags")
+			}
+			if !equalSpecTags(rpmSpec.Tags["patches"], rpmSpec.PatchTags) {
+				t.Errorf("tags['patches'] different from PatchTags")
+			}
+			if !equalSpecTags(rpmSpec.Tags["requires"], rpmSpec.RequiresTags) {
+				t.Errorf("tags['requires'] different from RequiresTags")
+			}
+
+			sourcesTags := make([]string, len(rpmSpec.SourcesTags))
+			for i, s := range rpmSpec.SourcesTags {
 				sourcesTags[i] = s.TagValue
 			}
 			if !SortCompare(sourcesTags, test.sourceTags) {
 				t.Errorf("Sources tags are wrong: %v, exp: %v", sourcesTags, test.sourceTags)
 			}
 
-			patchesTags := make([]string, len(rpmSpec.Tags["patches"]))
-			for i, s := range rpmSpec.Tags["patches"] {
+			patchesTags := make([]string, len(rpmSpec.PatchTags))
+			for i, s := range rpmSpec.PatchTags {
 				patchesTags[i] = s.TagValue
 			}
 			if !SortCompare(patchesTags, test.patchTags) {

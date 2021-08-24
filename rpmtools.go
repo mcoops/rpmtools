@@ -20,12 +20,16 @@ import (
 // SpecTag structs so help easily reference values, for example
 // RpmSpec.Tags["url"].
 type RpmSpec struct {
-	SpecLocation    string
-	SrpmLocation    string
-	SourcesLocation string
-	OutLocation     string
-	BuildLocation   string
-	Tags            map[string][]SpecTag
+	SpecLocation      string
+	SrpmLocation      string
+	SourcesLocation   string
+	OutLocation       string
+	BuildLocation     string
+	Tags              map[string][]SpecTag
+	SourcesTags       []SpecTag
+	PatchTags         []SpecTag
+	BuildRequiresTags []SpecTag
+	RequiresTags      []SpecTag
 }
 
 // Represents a row/field of key name + key value within a specfile
@@ -162,16 +166,20 @@ func rpmParseSpec(name string) (RpmSpec, error) {
 			}
 		}
 	}
+	rpm.SourcesTags = rpm.Tags["sources"]
+	rpm.PatchTags = rpm.Tags["patches"]
+	rpm.BuildRequiresTags = rpm.Tags["buildRequires"]
+	rpm.RequiresTags = rpm.Tags["requires"]
 	return rpm, nil
 }
 
 // Using a rpmspec obj return source0. Could be called Source0, or Source
 func (rpm RpmSpec) GetSource0() (string, error) {
-	if rpm.Tags["sources"] == nil {
+	if rpm.SourcesTags == nil {
 		return "", errors.New("no sources")
 	}
 
-	for _, source := range rpm.Tags["sources"] {
+	for _, source := range rpm.SourcesTags {
 		switch source.TagName {
 		case "Source0":
 			fallthrough
@@ -181,7 +189,7 @@ func (rpm RpmSpec) GetSource0() (string, error) {
 	}
 
 	// don't find any? we can only assume the first value
-	return rpm.Tags["sources"][0].TagValue, nil
+	return rpm.SourcesTags[0].TagValue, nil
 }
 
 // Using an rpmspec obj (rpm.spec location) and an output location, extract
