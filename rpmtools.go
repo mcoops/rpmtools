@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -210,51 +208,31 @@ func (rpm RpmSpec) RpmCleanup() {
 	os.RemoveAll(filepath.Join(rpm.OutLocation, "RPMS"))
 }
 
-// Given a `url` download the rpm to the `outputPath` to `SRPM` folder. Then
-// using rpm2cpio attempt to unpack to `SOURCES`. If that all completes, find
-// and parse the specfile.
-func RpmGetSrpm(url string, outputPath string) (RpmSpec, error) {
-	resp, err := http.Get(url)
-
+func RpmSpecFromFile(filePath string, outputPath string) (RpmSpec, error) {
+	sourcesDir, srpmDir, buildDir, err := util.CreateRpmBuildStructure(outputPath)
 	if err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to fetch url: " + url)
-	}
-	defer resp.Body.Close()
-
-  sourceRPM, sRPM, bRPM, err := util.CreateRpmBuildStructure(outputPath)
-	if err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create rpmbuild structure")
+		return RpmSpec{}, errors.New("failed to create rpmbuild structure")
 	}
 
-	outputRpmPath := filepath.Join(sRPM, filepath.Base(url))
-	out, err := os.Create(outputRpmPath)
+	filePath, err = filepath.Abs(filePath)
 	if err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to create output file: " + outputRpmPath)
+		return RpmSpec{}, errors.New("failed to make path absolute")
 	}
-
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to save file to: " + outputRpmPath)
-	}
-
-	// can we use out.filename?
-	cmd := exec.Command("bash", "-c", "rpm2cpio "+outputRpmPath+" | cpio -idv")
-	cmd.Dir = sourceRPM
+	cmd := exec.Command("bash", "-c", "rpm2cpio "+filePath+" | cpio -idv")
+	cmd.Dir = sourcesDir
 	if err := cmd.Run(); err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to unpack rpm file")
+		return RpmSpec{}, errors.New("failed to unpack rpm file")
 	}
 
-	// get the specfile
-	rpmSpec, err := RpmFindAndParseSpec(sourceRPM)
+	rpmSpec, err := RpmFindAndParseSpec(sourcesDir)
 	if err != nil {
-		return RpmSpec{}, errors.New("RpmGetSrcRpm: failed to parse specfile: " + err.Error())
+		return RpmSpec{}, errors.New("failed to parse specfile: " + err.Error())
 	}
 
-	rpmSpec.SrpmLocation = sRPM
-	rpmSpec.SourcesLocation = sourceRPM
+	rpmSpec.SrpmLocation = srpmDir
+	rpmSpec.SourcesLocation = sourcesDir
 	rpmSpec.OutLocation = outputPath
-	rpmSpec.BuildLocation = bRPM
+	rpmSpec.BuildLocation = buildDir
 
-	/// move specfile to SPECS
 	return rpmSpec, nil
 }

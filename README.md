@@ -7,7 +7,7 @@ applying any patch files found.
 
 The tool `rpmbuild` must be installed. I didn't want to recreate what `rpmbuild`
 or `rpmspec` does, especially parsing specfiles, and `python-rpm-spec` didn't
-seem to correctly parse all marcos. 
+seem to correctly parse all macros.
 
 ## Library
 
