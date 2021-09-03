@@ -30,6 +30,14 @@ type RpmSpec struct {
 	PatchTags         []SpecTag
 	BuildRequiresTags []SpecTag
 	RequiresTags      []SpecTag
+	BundledCodes      []RpmNameVersion
+}
+
+// Represent a name of a tool/package/library + its version, useful for
+// Provides: tags where a name and version is specified
+type RpmNameVersion struct {
+	Name    string
+	Version string
 }
 
 // Represents a row/field of key name + key value within a specfile
@@ -170,6 +178,23 @@ func rpmParseSpec(name string) (RpmSpec, error) {
 	rpm.PatchTags = rpm.Tags["patches"]
 	rpm.BuildRequiresTags = rpm.Tags["buildRequires"]
 	rpm.RequiresTags = rpm.Tags["requires"]
+
+	for _, t := range rpm.Tags["provides"] {
+		rg := regexp.MustCompile(`bundled\((?P<name>[^#)]*)\)( = (?P<version>[^#]*))?`)
+		match := rg.FindStringSubmatch(t.TagValue)
+
+		if len(match) >= 2 {
+			version := ""
+			if len(match) >= 4 {
+				version = match[3]
+			}
+			rpm.BundledCodes = append(rpm.BundledCodes, RpmNameVersion{
+				Name:    match[1],
+				Version: version,
+			})
+		}
+	}
+
 	return rpm, nil
 }
 
