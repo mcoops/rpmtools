@@ -1,0 +1,10 @@
+version: '3'
+services:
+  bash: &default
+    build: .
+    image: mcoops/rpmtools
+
+  test: &test
+    <<: *default
+    command: go test ./..
+    

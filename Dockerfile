@@ -4,4 +4,4 @@ RUN dnf install -y golang rpm-build
 
 COPY . .
 
-ENTRYPOINT ["go", "run", "cmd/rpmtools/rpmtools.go"]
+RUN go build cmd/rpmtools/rpmtools.go
