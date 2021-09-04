@@ -12,10 +12,11 @@ import (
 )
 
 type test struct {
-	url        string
-	specName   string
-	sourceTags []string
-	patchTags  []string
+	url          string
+	specName     string
+	sourceTags   []string
+	patchTags    []string
+	bundledNames []string
 }
 
 var outDir string
@@ -26,12 +27,35 @@ var tests = []test{
 		"python-urllib3.spec",
 		[]string{"https://github.com/urllib3/urllib3/archive/1.25.8/urllib3-1.25.8.tar.gz", "ssl_match_hostname_py3.py"},
 		[]string{"CVE-2021-33503.patch"},
+		[]string{},
 	},
 	{
 		"https://kojipkgs.fedoraproject.org//packages/rizin/0.2.0/2.fc33/src/rizin-0.2.0-2.fc33.src.rpm",
 		"rizin.spec",
 		[]string{"https://github.com/rizinorg/rizin/releases/download/v0.2.0/rizin-src-v0.2.0.tar.xz"},
 		[]string{"rizin-avoid-symbols-clashing.patch"},
+		[]string{"spp", "sdb", "js0n", "openbsdregex", "tcc", "binutils", "vavrdisasm"},
+	},
+	{
+		"https://kojipkgs.fedoraproject.org//packages/python-cvxopt/1.2.6/1.fc34/src/python-cvxopt-1.2.6-1.fc34.src.rpm",
+		"python-cvxopt.spec",
+		[]string{"https://github.com/cvxopt/cvxopt/archive/1.2.6/cvxopt-1.2.6.tar.gz"},
+		[]string{"python-cvxopt-setup.patch", "python-cvxopt-doc.patch", "python-cvxopt-signed.patch"},
+		[]string{"jquery"},
+	},
+	{
+		"https://kojipkgs.fedoraproject.org//packages/yasm/1.3.0/12.fc33/src/yasm-1.3.0-12.fc33.src.rpm",
+		"yasm.spec",
+		[]string{"http://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz"},
+		[]string{"0001-Update-elf-objfmt.c.patch"},
+		[]string{"md5-plumb", "md5-plumb"},
+	},
+	{
+		"https://kojipkgs.fedoraproject.org//packages/redis/6.2.5/1.fc34/src/redis-6.2.5-1.fc34.src.rpm",
+		"redis.spec",
+		[]string{"https://download.redis.io/releases/redis-6.2.5.tar.gz", "redis.logrotate", "redis-sentinel.service", "redis.service", "redis-shutdown", "redis-limit-systemd", "macros.redis", "https://github.com/redis/redis-doc/archive/6a9c6310b7291d802cf2fbc45b742e97e2804413/redis-doc-6a9c631.tar.gz"},
+		[]string{"0001-1st-man-pageis-for-redis-cli-redis-benchmark-redis-c.patch"},
+		[]string{"hiredis", "jemalloc", "lua-libs", "linenoise", "lzf"},
 	},
 }
 
@@ -151,6 +175,14 @@ func TestRpmSpecFromFile(t *testing.T) {
 			}
 			if !SortCompare(patchesTags, test.patchTags) {
 				t.Errorf("Patch tags are wrong: %v, exp: %v", patchesTags, test.patchTags)
+			}
+
+			bundledTags := make([]string, len(rpmSpec.BundledCodes))
+			for i, s := range rpmSpec.BundledCodes {
+				bundledTags[i] = s.Name
+			}
+			if !SortCompare(bundledTags, test.bundledNames) {
+				t.Errorf("Provides: bundled(...) tags are wrong: %v, exp: %v", bundledTags, test.bundledNames)
 			}
 
 			rpmSpec.Cleanup()
