@@ -180,7 +180,7 @@ func rpmParseSpec(name string) (RpmSpec, error) {
 	rpm.RequiresTags = rpm.Tags["requires"]
 
 	for _, t := range rpm.Tags["provides"] {
-		rg := regexp.MustCompile(`bundled\((?P<name>[^#)]*)\)( = (?P<version>[^#]*))?`)
+		rg := regexp.MustCompile(`bundled\((?P<name>[^#]*)\)( = (?P<version>[^#]*))?`)
 		match := rg.FindStringSubmatch(t.TagValue)
 
 		if len(match) >= 2 {

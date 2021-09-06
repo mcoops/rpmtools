@@ -57,6 +57,38 @@ var tests = []test{
 		[]string{"0001-1st-man-pageis-for-redis-cli-redis-benchmark-redis-c.patch"},
 		[]string{"hiredis", "jemalloc", "lua-libs", "linenoise", "lzf"},
 	},
+	{
+		"https://kojipkgs.fedoraproject.org//packages/gnome-shell-extension-pop-shell/1.2.0%5E3.ab87042/2.fc33/src/gnome-shell-extension-pop-shell-1.2.0%5E3.ab87042-2.fc33.src.rpm",
+		"gnome-shell-extension-pop-shell.spec",
+		[]string{
+			"https://github.com/pop-os/shell/archive/ab87042d2579c9ad9bb3271584b0281d97da7baa/pop-shell-ab87042.tar.gz",
+			"50_org.gnome.desktop.wm.keybindings.pop-shell.gschema.override",
+			"50_org.gnome.mutter.pop-shell.gschema.override",
+			"50_org.gnome.mutter.wayland.pop-shell.gschema.override",
+			"50_org.gnome.settings-daemon.plugins.media-keys.pop-shell.gschema.override",
+			"50_org.gnome.shell.pop-shell.gschema.override",
+		},
+		[]string{"0001-Remove-schema-handling-from-transpile.sh.patch"},
+		[]string{"npm(mathjs)", "npm(js-levenshtein)"},
+	},
+	{
+		"https://kojipkgs.fedoraproject.org//packages/golang/1.16.6/2.fc34/src/golang-1.16.6-2.fc34.src.rpm",
+		"golang.spec",
+		[]string{"https://storage.googleapis.com/golang/go1.16.6.src.tar.gz", "fedora.go", "golang-gdbinit"},
+		[]string{"0001-Don-t-use-the-bundled-tzdata-at-runtime-except-for-t.patch", "0002-syscall-expose-IfInfomsg.X__ifi_pad-on-s390x.patch", "0003-cmd-go-disable-Google-s-proxy-and-sumdb.patch", "ppc64le-vdso-fix.patch"},
+		[]string{
+			"golang(github.com/google/pprof)",
+			"golang(github.com/ianlancetaylor/demangle)",
+			"golang(golang.org/x/arch)",
+			"golang(golang.org/x/crypto)",
+			"golang(golang.org/x/mod)",
+			"golang(golang.org/x/net)",
+			"golang(golang.org/x/sys)",
+			"golang(golang.org/x/text)",
+			"golang(golang.org/x/tools)",
+			"golang(golang.org/x/xerrors)",
+		},
+	},
 }
 
 func SortCompare(a []string, b []string) bool {
@@ -103,24 +135,24 @@ func TestRpmSpecFromFile(t *testing.T) {
 			url := test.url
 			resp, err := http.Get(url)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			defer resp.Body.Close()
 
 			out, err := ioutil.TempFile("", "")
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			defer out.Close()
 
 			_, err = io.Copy(out, resp.Body)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 
 			rpmSpec, err := RpmSpecFromFile(out.Name(), outDir)
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 
 			sourcesLocationExp := filepath.Join(outDir, "SOURCES")
