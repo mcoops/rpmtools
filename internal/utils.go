@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,4 +63,19 @@ func CreateRpmBuildStructure(output string) (string, string, string, error) {
 	}
 
 	return sourceRPM, sRPM, bRPM, nil
+}
+
+func DirEmpty(loc string) error {
+	f, err := os.Open(loc)
+	if err != nil {
+		return errors.New("ApplyPatches: failed to open output location: " + loc)
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return errors.New("ApplyPatches: dir is empty: " + loc)
+	}
+
+	return nil
 }

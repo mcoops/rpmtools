@@ -225,6 +225,11 @@ func (rpm RpmSpec) ApplyPatches() error {
 		return errors.New("ApplyPatches: failed to run rpmbuild: " + err.Error())
 	}
 
+	// test if rpmbuild "passed", but didn't do anything, that's a fail if empty
+	if err := util.DirEmpty(rpm.BuildLocation); err != nil {
+		return errors.New("ApplyPatches: BUILD dir is empty: " + err.Error())
+	}
+
 	return nil
 }
 
