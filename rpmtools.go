@@ -235,11 +235,13 @@ func (rpm RpmSpec) ApplyPatches() error {
 
 // Best effort removal of src rpm files.
 func (rpm RpmSpec) Cleanup() {
+	// we could just remove everything, we just don't know where we are running
 	os.RemoveAll(rpm.SourcesLocation)
 	os.RemoveAll(rpm.SrpmLocation)
 	os.RemoveAll(rpm.BuildLocation)
 	os.RemoveAll(filepath.Join(rpm.OutLocation, "BUILDROOT"))
 	os.RemoveAll(filepath.Join(rpm.OutLocation, "RPMS"))
+	os.RemoveAll(filepath.Join(rpm.OutLocation, "SPECS"))
 }
 
 func RpmSpecFromFile(filePath string, outputPath string) (RpmSpec, error) {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/mcoops/rpmtools"
@@ -51,7 +52,15 @@ func main() {
 		return
 	}
 
-	r, err := rpmtools.RpmSpecFromFile(filePath, "/tmp")
+	out, err := ioutil.TempDir("", "")
+	if err != nil {
+		fmt.Println("failed to create temporary file")
+		return
+	}
+	defer os.Remove(out)
+	fmt.Println(out)
+
+	r, err := rpmtools.RpmSpecFromFile(filePath, out)
 	if err != nil {
 		fmt.Printf("%s", err.Error())
 	}
